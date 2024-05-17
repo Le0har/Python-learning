@@ -4,7 +4,11 @@ import json
 
 def getDataMain(url_main, name_file):
     url = url_main
-    req = requests.get(url)
+    try:
+        req = requests.get(url)
+    except Exception as ex:
+        print(ex)
+
     data = req.text
 
     with open(name_file, 'w', encoding='utf-8') as file:
@@ -24,58 +28,69 @@ def makeDataArticles(data_file_main):
         article_urls.append(article_url)
     return article_urls
 
+def getDataArticle(article_url):
+    try:
+        req = requests.get(article_url)
+    except Exception as ex:
+        print(ex)  
+
+    data = req.text
+    data_name = article_url.split('/')[-2]
+    
+    with open(f'data/{data_name}.html', 'w', encoding='utf-8') as file:
+        file.write(data)
+
+    with open(f'data/{data_name}.html', 'r', encoding='utf-8') as file:
+        data_file = file.read()
+    return data_file
+
+def getAricleName(soup):
+    article_name = soup.find('article', class_='post').find('div', class_='title').find('h1').text
+    return article_name
+
+def getArticleDate(soup):
+    article_date = soup.find('article', class_='post').find('div', class_='meta').find('time', class_='published').text
+    return article_date
+
+def getArticleAuthor(soup):
+    article_author = soup.find('article', class_='post').find('div', class_='meta').find('a', class_='author').find('span', class_='name').text
+    return article_author
+
+def getArticleWholeText(soup):
+    article_whole = soup.find('article', class_='post').find_all('p')   #считать всю статью
+    article_whole_text = []
+    for i in article_whole:
+        temp = i.text                                                   #извлечь текст
+        temp2 = ' '.join(temp.split())                                  #убрать лишние пробелы
+        article_whole_text.append(temp2)
+
+    #на некоторых страницах в последнем абзаце есть реклама - удаляю её
+    unnecessary = 'Любой сайт развивается благодаря тому, что о нем узнает все больше людей. Не проходите мимо, поделитесь новостями космоса:'
+    try:
+        article_whole_text.remove(unnecessary)
+    except ValueError:
+        pass
+
+    article_whole_add = soup.find_all('div', class_='box-note')         #на некоторых страницах последние абзацы статьи записаны в class "box-note"
+    for i in article_whole_add:
+        temp = i.text                                                   #извлечь текст
+        temp2 = ' '.join(temp.split())                                  #убрать лишние пробелы
+        article_whole_text.append(temp2)
+
+    article_whole_text = [x for x in article_whole_text if x != '']     #убрать пустые элементы из списка
+    return article_whole_text
+
 def parsingPages(article_urls):
     articles_data_list = []
     for article_url in article_urls:
-        req = requests.get(article_url)
-        data = req.text
-        data_name = article_url.split('/')[-2]
-    
-        with open(f'data/{data_name}.html', 'w', encoding='utf-8') as file:
-            file.write(data)
-
-        with open(f'data/{data_name}.html', 'r', encoding='utf-8') as file:
-            data_file = file.read()
-
+        data_file = getDataArticle(article_url)
         soup = BeautifulSoup(data_file, 'html.parser')
 
         try:
-            article_name = soup.find('article', class_='post').find('div', class_='title').find('h1').text
-        except Exception as ex:
-            print(ex)
-
-        try:
-            article_date = soup.find('article', class_='post').find('div', class_='meta').find('time', class_='published').text
-        except Exception as ex:
-            print(ex)
-
-        try:
-            article_author = soup.find('article', class_='post').find('div', class_='meta').find('a', class_='author').find('span', class_='name').text
-        except Exception as ex:
-            print(ex)
-
-        try:
-            article_whole = soup.find('article', class_='post').find_all('p')   #считать всю статью
-            article_whole_text = []
-            for i in article_whole:
-                temp = i.text                                                   #извлечь текст
-                temp2 = ' '.join(temp.split())                                  #убрать лишние пробелы
-                article_whole_text.append(temp2)
-
-            #на некоторых страницах в последнем абзаце есть реклама - удаляю её
-            unnecessary = 'Любой сайт развивается благодаря тому, что о нем узнает все больше людей. Не проходите мимо, поделитесь новостями космоса:'
-            try:
-                article_whole_text.remove(unnecessary)
-            except ValueError:
-                pass
-
-            article_whole_add = soup.find_all('div', class_='box-note')         #на некоторых страницах последние абзацы статьи записаны в class "box-note"
-            for i in article_whole_add:
-                temp = i.text                                                   #извлечь текст
-                temp2 = ' '.join(temp.split())                                  #убрать лишние пробелы
-                article_whole_text.append(temp2)
-
-            article_whole_text = [x for x in article_whole_text if x != '']     #убрать пустые элементы из списка
+            article_name = getAricleName(soup)
+            article_date = getArticleDate(soup)
+            article_author = getArticleAuthor(soup)
+            article_whole_text = getArticleWholeText(soup) 
         except Exception as ex:
             print(ex)
 
@@ -93,15 +108,13 @@ def saveJson(name_file, articles_data_list):
     with open(name_file, 'w', encoding='utf-8') as file:
         json.dump(articles_data_list, file, indent=4, ensure_ascii=False)
 
-#вызов функций(сама программа)
-print('Start!', 'Please wait...')
+def main():
+    print('Start!', 'Please wait...')
+    data_file_main = getDataMain('https://astronews.space/stars/', 'data_main.html')
+    article_urls = makeDataArticles(data_file_main)
+    articles_data_list = parsingPages(article_urls)
+    saveJson('articles_data.json', articles_data_list)
+    print ('Finish!')
 
-data_file_main = getDataMain('https://astronews.space/stars/', 'data_main.html')
-
-article_urls = makeDataArticles(data_file_main)
-
-articles_data_list = parsingPages(article_urls)
-
-saveJson('articles_data.json', articles_data_list)
-
-print ('Finish!')
+if __name__ == '__main__':
+    main()
