@@ -2,6 +2,14 @@ import requests
 from bs4 import BeautifulSoup
 import json
 
+def makeHtmlFile(name_file, data):
+    with open(f'data/{name_file}.html', 'w', encoding='utf-8') as file:
+        file.write(data)
+
+    with open(f'data/{name_file}.html', 'r', encoding='utf-8') as file:
+        data_file = file.read()
+    return data_file
+
 def getDataMain(url_main, name_file):
     url = url_main
     try:
@@ -10,12 +18,7 @@ def getDataMain(url_main, name_file):
         print(ex)
 
     data = req.text
-
-    with open(name_file, 'w', encoding='utf-8') as file:
-        file.write(data)
-
-    with open(name_file, 'r', encoding='utf-8') as file:
-        data_file = file.read()
+    data_file = makeHtmlFile(name_file, data)
     return data_file
 
 def makeDataArticles(data_file_main):
@@ -35,26 +38,15 @@ def getDataArticle(article_url):
         print(ex)  
 
     data = req.text
-    data_name = article_url.split('/')[-2]
-    
-    with open(f'data/{data_name}.html', 'w', encoding='utf-8') as file:
-        file.write(data)
-
-    with open(f'data/{data_name}.html', 'r', encoding='utf-8') as file:
-        data_file = file.read()
+    name_file = article_url.split('/')[-2]
+    data_file = makeHtmlFile(name_file, data)
     return data_file
 
-def getAricleName(soup):
+def getArticleElements(soup):
     article_name = soup.find('article', class_='post').find('div', class_='title').find('h1').text
-    return article_name
-
-def getArticleDate(soup):
     article_date = soup.find('article', class_='post').find('div', class_='meta').find('time', class_='published').text
-    return article_date
-
-def getArticleAuthor(soup):
     article_author = soup.find('article', class_='post').find('div', class_='meta').find('a', class_='author').find('span', class_='name').text
-    return article_author
+    return article_name, article_date, article_author
 
 def getArticleWholeText(soup):
     article_whole = soup.find('article', class_='post').find_all('p')   #считать всю статью
@@ -87,9 +79,7 @@ def parsingPages(article_urls):
         soup = BeautifulSoup(data_file, 'html.parser')
 
         try:
-            article_name = getAricleName(soup)
-            article_date = getArticleDate(soup)
-            article_author = getArticleAuthor(soup)
+            article_name, article_date, article_author = getArticleElements(soup)
             article_whole_text = getArticleWholeText(soup) 
         except Exception as ex:
             print(ex)
