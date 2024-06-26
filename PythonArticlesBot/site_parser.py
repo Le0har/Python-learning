@@ -60,9 +60,10 @@ def getArticleWholeText(soup):
         article_whole = soup.find('div', class_='article-formatted-body article-formatted-body article-formatted-body_version-1') #считать статью только для кривой страницы
     article_whole_text = []
     for i in article_whole:
-        temp = i.text                                                   #извлечь текст
+        temp = i.text                                                    #извлечь текст
         temp2 = ' '.join(temp.split())                                  #убрать лишние пробелы
         article_whole_text.append(temp2)
+        article_whole_text.append('\n\n')
 
     article_whole_text = [x for x in article_whole_text if x != '']     #убрать пустые элементы из списка
     return article_whole_text
@@ -108,8 +109,8 @@ def parsingPages(article_urls):
         try:
             article_name, article_date, article_author = getArticleElements(soup)
             article_whole_text = getArticleWholeText(soup) 
-            #picture_urls = findPictures(soup)
-            #list_binary = getArticleImages(picture_urls)
+            picture_urls = findPictures(soup)
+            list_binary = getArticleImages(picture_urls)
         except Exception as ex:
             print(ex)
 
@@ -121,7 +122,7 @@ def parsingPages(article_urls):
                 'Статья целиком': article_whole_text
             }
         )
-        #articles_pictures_list.append(list_binary)
+        articles_pictures_list.append(list_binary)
     return articles_data_list, articles_pictures_list     
 
 def saveJson(name_file, articles_data_list):
@@ -168,16 +169,23 @@ def main():
         saveDB(articles_data_list, articles_pictures_list)
     #print ('Finish!')
 
-def extractArticlesname():
+def extractArticlesName():
     with sqlite3.connect('articles.db') as con:
         cur = con.cursor()
-    cur.execute('SELECT article_name FROM articles ORDER BY article_date DESC LIMIT 10') #десять записией из БД отсортированных по дате
-    articles_name = cur.fetchall()
+        cur.execute('SELECT article_name FROM articles ORDER BY article_date DESC LIMIT 10') #десять записией из БД отсортированных по дате
+        articles_name = cur.fetchall()
     return articles_name
 
 def extractArticleWholeText():
     with sqlite3.connect('articles.db') as con:
         cur = con.cursor()
-    cur.execute('SELECT article_whole_text FROM articles ORDER BY article_date DESC LIMIT 10')  #десять записией из БД отсортированных по дате
-    article_whole_text = cur.fetchall()
+        cur.execute('SELECT article_whole_text FROM articles ORDER BY article_date DESC LIMIT 10')  #десять записией из БД отсортированных по дате
+        article_whole_text = cur.fetchall()
     return article_whole_text
+
+def extractArticlePictures():
+    with sqlite3.connect('articles.db') as con:
+        cur = con.cursor()
+        cur.execute('SELECT pictures FROM articles ORDER BY article_date DESC LIMIT 10')  #десять записией из БД отсортированных по дате
+        article_pictures = cur.fetchall()
+    return article_pictures
