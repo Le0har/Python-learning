@@ -59,12 +59,39 @@ def getArticleWholeText(soup):
     except:
         article_whole = soup.find('div', class_='article-formatted-body article-formatted-body article-formatted-body_version-1') #считать статью только для кривой страницы
     article_whole_text = []
+    count = 1
+
+    previous_element = article_whole[0].previous_sibling                #есть ли первая картинка перед текстом статьи
+    if previous_element != None: 
+        if previous_element.find('img') != None:                        #нашли картинку
+            article_whole_text.append(f'$#${count:02}\n\n')             #добавляем номер картинки
+            count += 1
+
     for i in article_whole:
         temp = i.text                                                   #извлечь текст
         temp2 = ' '.join(temp.split())                                  #убрать лишние пробелы
         article_whole_text.append(temp2)
-        article_whole_text.append('\n\n')
+               
+        next_element = i.next_sibling                                   #ищем картинку после абзаца текста
+        if next_element != None:
+            if next_element.find('img') != None:                        #нашли картинку
+                article_whole_text.append(f'$#${count:02}')             #добавляем номер картинки
+                count += 1
+                next_element = next_element.next_sibling                #проверяем нет ли еще картинок до следующего абзаца
+                while True:
+                    if next_element == None:
+                        break
+                    if next_element.name == 'p' or next_element.name == '/div':     #дошли до следующего абзаца или конца текста на странице
+                        break
+                    else:
+                        if next_element.find('img') != None:            #нашли еще картинку
+                            article_whole_text.append(f'\n\n$#${count:02}')         #добавляем номер картинки и пустые строчки
+                            count += 1
+                        next_element = next_element.next_sibling
 
+        article_whole_text.append('\n\n')                               #добавить две пустые строки после абзаца
+
+    #print('Кол-во картинок: ', count)
     article_whole_text = [x for x in article_whole_text if x != '']     #убрать пустые элементы из списка
     return article_whole_text
 
@@ -115,6 +142,7 @@ def parsingPages(article_urls):
 
         articles_data_list.append(
             {
+                'Сслыка на статью': article_url,
                 'Название статьи': article_name,
                 'Дата публикации': article_date,
                 'Автор статьи': article_author,
@@ -128,12 +156,13 @@ def saveJson(name_file, articles_data_list):
     with open(name_file, 'a', encoding='utf-8') as file:
         json.dump(articles_data_list, file, indent=4, ensure_ascii=False)
 
-def saveDB(articles_data_list, articles_pictures_list):
+def saveDb(articles_data_list, articles_pictures_list):
     with sqlite3.connect('articles.db') as con:
         cur = con.cursor()
 
         cur.execute('''CREATE TABLE IF NOT EXISTS articles (
                     article_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    article_url TEXT,
                     addition_date_in_db TEXT,
                     article_date TEXT,
                     article_name TEXT UNIQUE,
@@ -145,8 +174,9 @@ def saveDB(articles_data_list, articles_pictures_list):
         for i in range(20):      #20 статей на странице
             try:
                 stroka = ''.join(articles_data_list[i]['Статья целиком'])   #преобразование списка в строку
-                cur.execute('INSERT INTO articles (article_date, article_name, article_author, article_whole_text) VALUES(?, ?, ?, ?)', 
-                            (articles_data_list[i]['Дата публикации'], articles_data_list[i]['Название статьи'], articles_data_list[i]['Автор статьи'], stroka))
+                cur.execute('INSERT INTO articles (article_url, article_date, article_name, article_author, article_whole_text) VALUES(?, ?, ?, ?, ?)', 
+                            (articles_data_list[i]['Сслыка на статью'], articles_data_list[i]['Дата публикации'], articles_data_list[i]['Название статьи'], 
+                             articles_data_list[i]['Автор статьи'], stroka))
 
                 time_now = datetime.now()
                 addition_date_in_db = f'{time_now.year}-{time_now.month}-{time_now.day}, {time_now.hour}:{time_now.minute}'
@@ -163,7 +193,7 @@ def main():
         article_urls = makeDataArticles(data_file_main)
         articles_data_list, articles_pictures_list = parsingPages(article_urls)
         saveJson('articles_data.json', articles_data_list)
-        saveDB(articles_data_list, articles_pictures_list)
+        saveDb(articles_data_list, articles_pictures_list)
 
 def extractArticlesName(delta_number):
     with sqlite3.connect('articles.db') as con:
@@ -186,7 +216,9 @@ def extractArticlePictures(delta_number):
         article_pictures = cur.fetchall()
     return article_pictures
 
-def getNumberRecordsDB():
+def getNumberRecordsDb():
+    if os.path.exists('articles.db') == False:
+        return (0, )
     with sqlite3.connect('articles.db') as con:
         cur = con.cursor()
         cur.execute('SELECT COUNT(*) FROM articles')  #количество записей в БД
