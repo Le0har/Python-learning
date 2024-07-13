@@ -1,6 +1,7 @@
 import telebot
 from config import token, channel_id, bot_chat_id
 import site_parser
+import site_parser_2
 import os
 import pickle
 import asyncio
@@ -104,6 +105,7 @@ def pushArticles(chat_id):
     bot.send_message(chat_id, 'Запускаю поиск новых статей   🚀')
     old_number = site_parser.getNumberRecordsDb()
     site_parser.main()
+    site_parser_2.main()
     new_number = site_parser.getNumberRecordsDb()
     delta_number = new_number[0] - old_number[0]
     if delta_number > 0:
